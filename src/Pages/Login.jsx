@@ -1,29 +1,52 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Mail, Lock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import AuthInput from "../Components/AuthInput";
 import AuthButton from "../Components/AuthButton";
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const emailRef = useRef(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    // ensure body isn't locked
+    document.body.style.overflow = "auto";
+
+    // give the browser one tick and then focus
+    const t = setTimeout(() => {
+      if (emailRef.current) {
+        emailRef.current.focus();
+        console.log("Login: focused email input", emailRef.current);
+      } else {
+        console.warn("Login: emailRef.current is null — element not mounted");
+        // diagnostic: find elements on top of input center
+        const input = document.querySelector('input[name="email"]');
+        if (input) {
+          const r = input.getBoundingClientRect();
+          const elems = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          console.log("Elements above input (top->bottom):", elems.map(e => `${e.tagName} ${e.className || e.id}`));
+        } else {
+          console.warn("Login: no input[name='email'] found in DOM");
+        }
+      }
+    }, 0);
+
+    return () => clearTimeout(t);
+  }, [location.state?.fromRegister]);
+
   const handleLogin = async (e) => {
-    e.preventDefault(); // Prevent form reload
-
+    e.preventDefault();
+    setError("");
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", {
-        email,
-        password,
-      });
-
+      const res = await axios.post("http://localhost:5000/api/auth/login", { email, password });
       localStorage.setItem("token", res.data.token);
-       console.log("Login success, navigating to home...");
-      navigate("/"); // Navigate to home on success
+      navigate("/");
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
     }
@@ -43,20 +66,18 @@ const Login = () => {
             Icon={Mail}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            ref={emailRef}
           />
 
-          <div className="flex flex-col mt-5">
-            <AuthInput
-              label="Password"
-              type="password"
-              name="password"
-              placeholder="Type your Password"
-              Icon={Lock}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-           
-          </div>
+          <AuthInput
+            label="Password"
+            type="password"
+            name="password"
+            placeholder="Type your Password"
+            Icon={Lock}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
           {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
 
